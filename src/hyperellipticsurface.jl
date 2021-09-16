@@ -240,10 +240,10 @@ function bernsteinρ(v::Array)
     u
 end
    
-fff = (ϵ,ρ,c) -> ρ < 1e-16 ? 0 : convert(Int64, (log(1/ϵ) + log(c/(1-ρ)))/log(1/ρ) |> ceil)
+fff = (ϵ,ρ,c,k) -> max(ρ < 1e-16 ? 0 : convert(Int64, (log(1/ϵ) + log(c/(1-ρ)))/log(1/ρ) |> ceil),k)
 
-function choose_order(gaps::Array,ϵ,c)
-    map(z -> fff(ϵ,z,c), bernsteinρ(gaps)) .+ 2
+function choose_order(gaps::Array,ϵ,c,k)
+    map(z -> fff(ϵ,z,c,k), bernsteinρ(gaps)) .+ 2
 end
 
 function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tol = 2*1e-14,iter = 100)
@@ -280,7 +280,7 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tol = 2*1e-14,it
     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
 end
 
-function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tol = 2*1e-14,iter = 100)
+function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tol = 2*1e-14,iter = 100,K=0,show_flag=false)
     zgaps_neg = hcat(- sqrt.(S.gaps[:,2]) |> reverse, - sqrt.(S.gaps[:,1]) |> reverse)
     zgaps_pos = hcat( sqrt.(S.gaps[:,1]) , sqrt.(S.gaps[:,2]) )
     #zzs_pos = sqrt.(zs)
@@ -294,8 +294,10 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tol = 2*1e-14,
 
     Ωs = Ω(0.0,0.0)
     RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
-    ns = choose_order(zgaps_pos,tol,c)
-    println(ns)
+    ns = choose_order(zgaps_pos,tol,c,K)
+    if show_flag
+    	println(ns)
+    end
     
     
 #     #lens = abs.(zgaps[:,1] - zgaps[:,2])
