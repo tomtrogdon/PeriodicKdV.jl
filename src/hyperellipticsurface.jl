@@ -103,7 +103,7 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
         end
     end
 
-	display(A)
+	#display(A)
 
 #     tB = zeros(Complex{Float64},g,g);
 #     for i = 1:g
