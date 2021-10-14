@@ -208,9 +208,9 @@ function find_s(cΩx::Vector,cΩ0::Vector,L,gaps::Array,tol)
     return mod(T,L)
 end
 
-function RefineHyperellipticSurface!(q0::Function,L,S::HyperellipticSurface,invtol,n,tol,k,m)
+function RefineHyperellipticSurface!(q0::Function,L,S::HyperellipticSurface,invtol,n,tol,k,m,new=true)
     s = find_s(S.Ωx,S.Ω0,L,S.gaps,invtol)
     gaps, zs, α1 = PeriodicKdV.ScatteringData(x -> q0(x-s),L,n,tol,k)
-    Snew = HyperellipticSurface(gaps,zs,α1,m)
+    Snew = HyperellipticSurface(gaps,zs,α1,m,new)
     S.Ω0 = Snew.Ωx*s+Snew.Ω0
 end

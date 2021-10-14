@@ -61,7 +61,7 @@ function WeightPlot(WA::Array)
         p = plot!(X,0*X,lw = 4, legend = false, yrange = [-1,2], xrange = [aa-1,bb+1],color = :blue)
         plot!([a,b],[0,0], seriestype = :scatter, markersize = 5,
         markercolor = :black)
-        plot!(X,map(W.W.w,x), color=:black)   
+        plot!(X,map(W.W.w,x), color=:black)
     end
     p
 end
@@ -78,12 +78,12 @@ function FunPlot(FA::Array)
     p = plot(X,0*X,lw = 4, legend = false, yrange = [-3,3], xrange = [aa-1,bb+1],color = :blue)
     plot!([a,b],[0,0], seriestype = :scatter, markersize = 5,
     markercolor = :black)
-    
+
     data = poly(W.W.a,W.W.b,length(F.cs)-1,x)*F.cs
     plot!(X,data |> real, color=:blue)
     plot!(X,data |> imag, color=:red)
     plot!(X,map(W.W.w,x), color=:black)
-    
+
     for i = 2:length(FA)
         F = FA[i]
         W = F.W
@@ -93,14 +93,14 @@ function FunPlot(FA::Array)
         p = plot!(X,0*X,lw = 4, legend = false, yrange = [-5,5], xrange = [aa-1,bb+1],color = :blue)
         plot!([a,b],[0,0], seriestype = :scatter, markersize = 5,
         markercolor = :black)
-        
+
         data = poly(W.W.a,W.W.b,length(F.cs)-1,x)*F.cs
         plot!(X,data |> real, color=:blue)
         plot!(X,data |> imag, color=:red)
         plot!(X,map(W.W.w,x), color=:black)
     end
     p
-    
+
 end
 
 # TODO: this should be more flexible and robust

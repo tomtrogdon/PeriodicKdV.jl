@@ -10,15 +10,15 @@ mutable struct HyperellipticSurface
     α1
 end
 
-function HyperellipticSurface(q0::Function,L::Float64,n=100,tol=1e-14,m=200,trunctol=1e-14,invtol=.4)
+function HyperellipticSurface(q0::Function,L::Float64,n=100,tol=1e-14,m=200,trunctol=1e-14,invtol=.4,new=true)
     gaps, zs, α1 = ScatteringData(q0,L,n,tol,trunctol)
     k = size(gaps)[1]
-    S = HyperellipticSurface(gaps,zs,α1,m)
-    RefineHyperellipticSurface!(q0,L,S,invtol,n,tol,k,m)
+    S = HyperellipticSurface(gaps,zs,α1,m,new)
+    RefineHyperellipticSurface!(q0,L,S,invtol,n,tol,k,m,new)
     return S
 end
 
-function HyperellipticSurface(gaps,zs,α1,m=50)
+function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
     ep = 0 #TODO: Probably a good idea to eliminate the need for this.
     r = (x,y) -> (x |> Complex |> sqrt)/(y |> Complex |> sqrt)
     pr = (x,y) -> (x |> Complex |> sqrt)*(y |> Complex |> sqrt)
@@ -61,14 +61,43 @@ function HyperellipticSurface(gaps,zs,α1,m=50)
 #         end
 #     end
 
+    function γ(z)
+        out = -1im/sqrt(-z |> Complex)
+        for i = 1:size(gaps)[1]
+            out *= r(z - gaps[i,1], z - gaps[i,2])
+        end
+        if imag(z) >= 0.0
+            return out
+        else
+            return -out
+        end
+    end
+
     g = size(gaps)[1]
     A = zeros(Complex{Float64},g,g);
-    for i = 1:g
-        for j = 1:g
-            if i == j
-                A[i,i] = -2*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> F(i,i,z+1im*ep)))
-            else
-                A[j,i] = -2*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> F(j,i,z+1im*ep)))
+
+    if new
+        as = (gaps[:,1] + gaps[:,2])/2 |> complex
+        dist = (gaps[2:end,2] - gaps[1:end-1,1])/2 |> minimum
+        rads = (gaps[:,2] - gaps[:,1])/2 .+ dist
+        cfuns = (a,rad) -> CircleFun(z -> map(γ,z), a, rad, 100)
+        γs = map(cfuns,as,rads)
+
+
+        for i = 1:g
+            b = gaps[i,1]
+            divfun = ff -> CircleFun(ff.a,ff.r,ff.v./(circle_points(ff) .- b))
+            df = map(divfun,γs)
+            A[i,:] = map(Integrate,df)
+        end
+    else
+        for i = 1:g
+            for j = 1:g
+                if i == j
+                    A[i,i] = -2*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> F(i,i,z+1im*ep)))
+                else
+                    A[j,i] = -2*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> F(j,i,z+1im*ep)))
+                end
             end
         end
     end
@@ -139,11 +168,11 @@ function HyperellipticSurface(gaps,zs,α1,m=50)
         elseif λ > 1
             return 0
         end
-        
+
         if λ < -1
             return 0.0
         end
-        
+
         if n == 0
             1 - acos(λ)/pi
         else
@@ -239,7 +268,7 @@ function bernsteinρ(v::Array)
     u[end] = bernsteinρ(v[end,1],v[end,2],rad/2)
     u
 end
-   
+
 fff = (ϵ,ρ,c,k) -> max(ρ < 1e-16 ? 0 : convert(Int64, (log(1/ϵ) + log(c/(1-ρ)))/log(1/ρ) |> ceil),k)
 
 function choose_order(gaps::Array,ϵ,c,k)
@@ -261,22 +290,22 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tol = 2*1e-14,it
     Ωs = Ω(0.0,0.0)
     RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
     ns = fill(n,WIp |> length)
-    
+
 #     #lens = abs.(zgaps[:,1] - zgaps[:,2])
-    
-    
+
+
 #     f = x -> convert(Int,ceil(10 + 10/x^2))
 #     ns = map(f,zgaps_pos[:,1])
     ns = vcat(ns |> reverse, ns)
 
     CpBO = CauchyChop(RHP,RHP,ns,ns,1,tol)
     CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tol)
-    
-    
+
+
     #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
     #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
-    
-    
+
+
     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
 end
 
@@ -298,23 +327,23 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tol = 2*1e-14,
     if show_flag
     	println(ns)
     end
-    
-    
+
+
 #     #lens = abs.(zgaps[:,1] - zgaps[:,2])
-    
-    
+
+
 #     f = x -> convert(Int,ceil(10 + 10/x^2))
 #     ns = map(f,zgaps_pos[:,1])
     ns = vcat(ns |> reverse, ns)
 
     CpBO = CauchyChop(RHP,RHP,ns,ns,1,tol)
     CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tol)
-    
-    
+
+
     #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
     #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
-    
-    
+
+
     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
 end
 
@@ -333,23 +362,23 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Array,tol = 2*1e-14,it
     Ωs = Ω(0.0,0.0)
     RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
     ns = c # choose_order(zgaps_pos,tol,c)
-    
-    
+
+
 #     #lens = abs.(zgaps[:,1] - zgaps[:,2])
-    
-    
+
+
 #     f = x -> convert(Int,ceil(10 + 10/x^2))
 #     ns = map(f,zgaps_pos[:,1])
     ns = vcat(ns |> reverse, ns)
 
     CpBO = CauchyChop(RHP,RHP,ns,ns,1,tol)
     CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tol)
-    
-    
+
+
     #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
     #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
-    
-    
+
+
     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
 end
 
@@ -357,7 +386,7 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     ns = BA.ns
     Ωs = BA.Ω(x,t)
     Ωsx = BA.Ω(1.0,0) - BA.Ω(0.0,0)
-    
+
     RHP = vcat(map(gm,BA.WIm,Ωs |> reverse),map(gp,BA.WIp,Ωs));
     RHPx = vcat(map(gmx,BA.WIm, Ωs |> reverse, Ωsx |> reverse),map(gpx,BA.WIp,Ωs,Ωsx));
 
@@ -366,7 +395,7 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     #ZZ = BlockOperator(fill(Z,m,m))
     ZZ = BlockZeroOperator(ns)
     C⁺ = vcat(hcat(BA.Cp,ZZ),hcat(ZZ,BA.Cp))
-    
+
 
     D11 = DiagonalBlockOperator( [-RHP[j].J[1,1] for j = 1:m], ns)
     D21 = DiagonalBlockOperator( [-RHP[j].J[1,2] for j = 1:m], ns)
@@ -396,7 +425,7 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     JxCp = permute(JxC⁻,p)
 
     D = TakeDiagonalBlocks(Sp,2)
-    
+
     #### fix this.
     ind = vcat(ns,ns)
     dim = sum(ind)
@@ -404,20 +433,20 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     fine_ind = indextogaps(ind)[p] |> gapstoindex
     coarse_ind = fine_ind |> indextogaps
     coarse_ind = coarse_ind[1:2:end] + coarse_ind[2:2:end] |> gapstoindex
-    
+
     PrS = x -> BlockVector(fine_ind,D\BlockVector(coarse_ind,x))
 
     b = BlockVector(ind,fill(0.0im,2*dim))
     bx =  BlockVector(ind,fill(0.0im,2*dim))
-    
+
     #### Do this using block vectors
-    
+
     for j in 1:m
         b[j] = b[j] .+ (RHP[j].J[1,1] + RHP[j].J[2,1] - 1)
         b[j+m] = b[j+m] .+ (RHP[j].J[2,2] + RHP[j].J[1,2] - 1)
         bx[j] = bx[j] .+ (RHPx[j].J[1,1] + RHPx[j].J[2,1])
         bx[j+m] = bx[j+m] .+ (RHPx[j].J[2,2] + RHPx[j].J[1,2])
-        
+
 #         rhs[(j-1)*n+1:j*n] = rhs[(j-1)*n+1:j*n] .+ (RHP[j].J[1,1] + RHP[j].J[2,1] - 1)
 #         rhs[m*n+(j-1)*n+1:m*n+j*n] = rhs[m*n+(j-1)*n+1:m*n+j*n] .+ (RHP[j].J[2,2] + RHP[j].J[1,2] - 1)
 #         rhsx[(j-1)*n+1:j*n] = rhsx[(j-1)*n+1:j*n] .+ (RHPx[j].J[1,1] + RHPx[j].J[2,1])
@@ -431,7 +460,6 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
 
     Op = x -> PrS(Sp*x)
     #return (D,coarse_ind,fine_ind,bp)
-    
     out = GMRES_quiet(Op,PrS(bp),⋅, tol,BA.iter)
     solp = out[2][1]*out[1][1]
     for j = 2:length(out[2])
