@@ -432,13 +432,13 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     Op = x -> PrS(Sp*x)
     #return (D,coarse_ind,fine_ind,bp)
     
-    out = GMRES_quiet(Op,PrS(bp),⋅,BA.tol,BA.iter)
+    out = GMRES_quiet(Op,PrS(bp),⋅, tol,BA.iter)
     solp = out[2][1]*out[1][1]
     for j = 2:length(out[2])
         solp += out[2][j]*out[1][j]
     end
 
-    outx = GMRES_quiet(Op,PrS(bpx-JxCp*solp),⋅,BA.tol,BA.iter)
+    outx = GMRES_quiet(Op,PrS(bpx-JxCp*solp),⋅, tol,BA.iter)
     solpx = outx[2][1]*outx[1][1]
     for j = 2:length(outx[2])
         solpx += outx[2][j]*outx[1][j]
@@ -462,6 +462,13 @@ end
 
 function KdV(BA::BakerAkhiezerFunction,x,t)
     out = BA(x+6*BA.α1*t, t);
+    2im*(-1/(2im*pi)*sum(map(x -> DomainIntegrateVW(x), out[4])) + BA.E) - BA.α1
+    # I think this is right but I cannot justify it, +/- sign issue
+    # It must have to do with the jumps and which sheet, etc.
+end
+
+function KdV(BA::BakerAkhiezerFunction,x,t,tol)
+    out = BA(x+6*BA.α1*t, t, tol);
     2im*(-1/(2im*pi)*sum(map(x -> DomainIntegrateVW(x), out[4])) + BA.E) - BA.α1
     # I think this is right but I cannot justify it, +/- sign issue
     # It must have to do with the jumps and which sheet, etc.
