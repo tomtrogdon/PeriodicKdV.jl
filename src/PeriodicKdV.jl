@@ -11,6 +11,7 @@ include("operators.jl")
 include("adaptivecauchy.jl")
 include("hyperellipticsurface.jl")
 include("forwardscattering.jl")
+include("circlefun.jl")
 
 export cauchy, poly, transformT, transformV, transformU, transformW, SIE, SIE_new, chebV, chebU, chebW, chebT, WeightedInterval, WeightPlot, Cut, spy, FunPlot, GMRES, CauchyChop, Cauchy, M, iM, Ugrid, DefiniteIntegral, BlockVector,
 aT, bT, aU, bU, aW, bW, aV, bV, HyperellipticSurface, BakerAkhiezerFunction, KdV
@@ -133,6 +134,10 @@ end
 
 function *(In::DefiniteIntegral,f::Function)
     In.T(map(f,M(In.a,In.b)(Ugrid(In.n))))[1]
+end
+
+function *(In::DefiniteIntegral,f::Vector)
+    In.T(f)[1]
 end
 
 # Roots of Chebyshev U_n
