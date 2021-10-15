@@ -83,7 +83,6 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
         cfuns = (a,rad) -> CircleFun(z -> map(γ,z), a, rad, 100)
         γs = map(cfuns,as,rads)
 
-
         for i = 1:g
             b = gaps[i,1]
             divfun = ff -> CircleFun(ff.a,ff.r,ff.v./(circle_points(ff) .- b))
@@ -94,9 +93,9 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
         for i = 1:g
             for j = 1:g
                 if i == j
-                    A[i,i] = -2*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> F(i,i,z+1im*ep)))
+                    A[i,i] = -2*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> F(i,i,z |> complex)))
                 else
-                    A[j,i] = -2*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> F(j,i,z+1im*ep)))
+                    A[j,i] = -2*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> F(j,i,z |> complex)))
                 end
             end
         end
@@ -119,7 +118,7 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
 #        B[:,j] = B[:,j] + B[:,j-1]
 #     end
 #     B = 2im*pi*(A\B)  #Riemann Matrix
-
+    println(m)
 
     Ωx = zeros(Complex{Float64},g);
     for i = 1:g
