@@ -79,8 +79,9 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
     if new
         as = (gaps[:,1] + gaps[:,2])/2 |> complex
         dist = (gaps[2:end,2] - gaps[1:end-1,1])/2 |> minimum
+	dist = min(dist, gaps[1,1]/2)
         rads = (gaps[:,2] - gaps[:,1])/2 .+ dist
-        cfuns = (a,rad) -> CircleFun(z -> map(γ,z), a, rad, 100)
+        cfuns = (a,rad) -> CircleFun(z -> map(γ,z), a, rad, m)
         γs = map(cfuns,as,rads)
 
         for i = 1:g
@@ -100,6 +101,8 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
             end
         end
     end
+
+	#display(A)
 
 #     tB = zeros(Complex{Float64},g,g);
 #     for i = 1:g
