@@ -359,7 +359,7 @@ function choose_order(gaps::Array,ϵ,c,k)
     map(z -> fff(ϵ,z,c,k), bernsteinρ(gaps)) .+ 2
 end
 
-function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tol = 2*1e-14,iter = 100)
+function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tols = [2*1e-14,false],iter = 100)
     zgaps_neg = hcat(- sqrt.(S.gaps[:,2]) |> reverse, - sqrt.(S.gaps[:,1]) |> reverse)
     zgaps_pos = hcat( sqrt.(S.gaps[:,1]) , sqrt.(S.gaps[:,2]) )
     #zzs_pos = sqrt.(zs)
@@ -382,18 +382,18 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tol = 2*1e-14,it
 #     ns = map(f,zgaps_pos[:,1])
     ns = vcat(ns |> reverse, ns)
 
-    CpBO = CauchyChop(RHP,RHP,ns,ns,1,tol)
-    CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tol)
+    CpBO = CauchyChop(RHP,RHP,ns,ns,1,tols[2])
+    CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tols[2])
 
 
     #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
     #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
 
 
-    return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
+    return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tols[1],iter)
 end
 
-function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tol = 2*1e-14,iter = 100,K=0,show_flag=false)
+function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tols = [2*1e-14,false],iter = 100,K=0,show_flag=false)
     zgaps_neg = hcat(- sqrt.(S.gaps[:,2]) |> reverse, - sqrt.(S.gaps[:,1]) |> reverse)
     zgaps_pos = hcat( sqrt.(S.gaps[:,1]) , sqrt.(S.gaps[:,2]) )
     #zzs_pos = sqrt.(zs)
@@ -407,7 +407,7 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tol = 2*1e-14,
 
     Ωs = Ω(0.0,0.0)
     RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
-    ns = choose_order(zgaps_pos,tol,c,K)
+    ns = choose_order(zgaps_pos,tols[1],c,K)
     if show_flag
     	println(ns)
     end
@@ -420,15 +420,15 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tol = 2*1e-14,
 #     ns = map(f,zgaps_pos[:,1])
     ns = vcat(ns |> reverse, ns)
 
-    CpBO = CauchyChop(RHP,RHP,ns,ns,1,tol)
-    CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tol)
+    CpBO = CauchyChop(RHP,RHP,ns,ns,1,tols[2])
+    CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tols[2])
 
 
     #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
     #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
 
 
-    return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
+    return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tols[1],iter)
 end
 
 function BakerAkhiezerFunction(S::HyperellipticSurface,c::Array,tol = 2*1e-14,iter = 100)
@@ -446,23 +446,14 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Array,tol = 2*1e-14,it
     Ωs = Ω(0.0,0.0)
     RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
     ns = c # choose_order(zgaps_pos,tol,c)
-
-
 #     #lens = abs.(zgaps[:,1] - zgaps[:,2])
-
-
 #     f = x -> convert(Int,ceil(10 + 10/x^2))
 #     ns = map(f,zgaps_pos[:,1])
     ns = vcat(ns |> reverse, ns)
-
     CpBO = CauchyChop(RHP,RHP,ns,ns,1,tol)
     CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tol)
-
-
     #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
     #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
-
-
     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
 end
 

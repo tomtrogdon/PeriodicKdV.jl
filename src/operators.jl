@@ -14,7 +14,7 @@ LowRankOperator(U,S,Vt) = LowRankOperator{typeof(U[1,1])}(U,S,Vt)
 effectiverank(T::LowRankOperator) = length(T.S)
 
 struct GenericLinearOperator <: LinearOperator
-   f::Function 
+   f::Function
 end
 
 struct MatrixOperator{T} <: LinearOperator where T
@@ -46,11 +46,11 @@ ScalarOperator(s,n) = ScalarOperator{typeof(s)}(s,n)
 ZeroOperator(n::Integer) = ZeroOperator(n,n)
 
 struct SumOfLinearOperators <: LinearOperator
-   A::Vector{LinearOperator} 
+   A::Vector{LinearOperator}
 end
 
 struct ProductOfLinearOperators <: LinearOperator
-   A::Vector{LinearOperator} 
+   A::Vector{LinearOperator}
 end
 
 mutable struct BlockVector{T} <: AbstractVector{T}# supposes equal sized blocks
@@ -61,11 +61,11 @@ end
 BlockVector(ind,V) = BlockVector{typeof(V[1])}(ind,V)
 
 function *(a::Number,B::LowRankOperator)  #TODO:  Add if a \approx 0 check
-   LowRankOperator{typeof(a*B.U[1,1])}(B.U,a*B.S,B.Vt) 
+   LowRankOperator{typeof(a*B.U[1,1])}(B.U,a*B.S,B.Vt)
 end
 
 function *(a::Number,B::MatrixOperator)
-   MatrixOperator(a*B.A) 
+   MatrixOperator(a*B.A)
 end
 
 function *(a::Number,B::ZeroOperator)
@@ -77,30 +77,30 @@ function *(a::Number,B::ScalarOperator)
 end
 
 function +(A::ZeroOperator,B::LinearOperator)
-   B 
+   B
 end
 
 function +(A::ZeroOperator,B::ZeroOperator)
-   B 
+   B
 end
 
 function +(A::LinearOperator,B::ZeroOperator)
-   A 
+   A
 end
 
 function +(A::MatrixOperator,B::MatrixOperator)
-   MatrixOperator(A.A + B.A) 
+   MatrixOperator(A.A + B.A)
 end
 
 function +(A::LinearOperator,B::LinearOperator)
     if size(A) != size(B)
         @error "Dimension Mismatch"
     end
-   SumOfLinearOperators([A,B]) 
+   SumOfLinearOperators([A,B])
 end
 
 function *(A::LinearOperator,B::LinearOperator)
-   ProdcutOfLinearOperators([A,B]) 
+   ProdcutOfLinearOperators([A,B])
 end
 
 function *(L::ZeroOperator,v::Vector)
@@ -215,14 +215,14 @@ function size(A::MatrixOperator)
 end
 
 function size(A::LowRankOperator)
-   (size(A.U)[1],size(A.Vt)[2]) 
+   (size(A.U)[1],size(A.Vt)[2])
 end
 
 function size(A::SumOfLinearOperators)
-   size(A.A[1]) 
+   size(A.A[1])
 end
 
-function +(B1::BlockOperator,B2::BlockOperator) 
+function +(B1::BlockOperator,B2::BlockOperator)
      BlockOperator(B1.A + B2.A)
 end
 
@@ -239,7 +239,7 @@ function *(D::DiagonalBlockOperator,B::BlockOperator)
     end
     BlockOperator(A)
 end
-    
+
 
 function diag(B::BlockOperator)
    (n,m) = size(B)
@@ -248,7 +248,7 @@ end
 
 function zero(LinearOperator)
     GenericLinearOperator( x -> 0*x)
-end    
+end
 
 function Array(A::MatrixOperator)
     A.A
@@ -282,7 +282,7 @@ function permute_old(A::BlockOperator,p)
         return A
     end
     if length(p) != m
-       @error "permutation wrong size" 
+       @error "permutation wrong size"
     end
     B = A.A |> copy
     for i = 1:n
@@ -300,21 +300,21 @@ function permute(A::BlockOperator,p)
         return A
     end
     if length(p) != m
-       @error "permutation wrong size" 
+       @error "permutation wrong size"
     end
     BlockOperator(A.A[p,p])
 end
 
 function permute(V::BlockVector,p)  # Supposes equal-sized blocks
     if length(p) != length(V.ind) - 1
-       @error "permutation wrong size" 
+       @error "permutation wrong size"
     end
     BlockVector(indextogaps(V.ind)[p] |> gapstoindex,vcat(map(x -> V[x], p)...))
 end
 
 function ipermute(V::BlockVector,p)  # Supposes equal-sized blocks
     if length(p) != length(V.ind) - 1
-       @error "permutation wrong size" 
+       @error "permutation wrong size"
     end
     ip = 1:length(p) |> Array
     ip[p] = ip
@@ -336,7 +336,7 @@ end
 function gapstoindex(v)
     vcat([1],1 .+ cumsum(v))
 end
-    
+
 function BlockVector(V::BlockVector,n::Integer)
     if mod(length(V.V),n) != 0
         @error "Unable to partition vector"
@@ -451,6 +451,9 @@ function hcat(A::BlockOperator,B::BlockOperator)
 end
 
 function chop(B::Array,tol)
+    if tol == false
+        return MatrixOperator(B)
+    end
     A = svd(B)
     s = A.S
     if A.S[1] < tol
@@ -500,7 +503,7 @@ function TakeDiagonalBlocks(A::BlockOperator,j::Integer)
     r = 1:j:n
     f = (x,y) -> TakeDiagonalBlock(A,x,y)
     map(f,r,fill(j,length(r))) |> DiagonalBlockOperator
-    
+
 end
 
 function BlockZeroOperator(n::Vector)
