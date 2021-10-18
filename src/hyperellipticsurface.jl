@@ -10,7 +10,7 @@ mutable struct HyperellipticSurface
     α1
 end
 
-function HyperellipticSurface(q0::Function,L::Float64,n=100,tol=1e-14,m=200,trunctol=1e-14,invtol=.4,new=true)
+function HyperellipticSurface(q0::Function,L::Float64,n=100,tol=1e-14,m=200,trunctol=1e-14,invtol=.4,new=[true,true])
     gaps, zs, α1 = ScatteringData(q0,L,n,tol,trunctol)
     k = size(gaps)[1]
     S = HyperellipticSurface(gaps,zs,α1,m,new)
@@ -18,7 +18,7 @@ function HyperellipticSurface(q0::Function,L::Float64,n=100,tol=1e-14,m=200,trun
     return S
 end
 
-function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
+function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
     ep = 0 #TODO: Probably a good idea to eliminate the need for this.
     r = (x,y) -> (x |> Complex |> sqrt)/(y |> Complex |> sqrt)
     pr = (x,y) -> (x |> Complex |> sqrt)*(y |> Complex |> sqrt)
@@ -76,10 +76,11 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
     g = size(gaps)[1]
     A = zeros(Complex{Float64},g,g);
 
-    if new
+    if new[1]
+		println("a-cycles: new method")
         as = (gaps[:,1] + gaps[:,2])/2 |> complex
-        dist = (gaps[2:end,2] - gaps[1:end-1,1])/2 |> minimum
-	dist = min(dist, gaps[1,1]/2)
+        dist = (gaps[2:end,2] - gaps[1:end-1,1])/2 |> minimum # no need to be uniform here
+	    dist = min(dist, gaps[1,1]/2)
         rads = (gaps[:,2] - gaps[:,1])/2 .+ dist
         cfuns = (a,rad) -> CircleFun(z -> map(γ,z), a, rad, m)
         γs = map(cfuns,as,rads)
@@ -121,50 +122,76 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
 #        B[:,j] = B[:,j] + B[:,j-1]
 #     end
 #     B = 2im*pi*(A\B)  #Riemann Matrix
-    println(m)
 
     Ωx = zeros(Complex{Float64},g);
-    for i = 1:g
-        for j = 1:g
-            if i == j
-                Ωx[i] += 2im*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> sqrt(z)*F(i,i,z+1im*ep)))
-            else
-                Ωx[j] += 2im*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> sqrt(z)*F(j,i,z+1im*ep)))
-            end
-        end
-    end
+	if new[1]
+		for i = 1:g
+		    b = gaps[i,1]
+		    divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(circle_points(ff) .- b)).*sqrt.(circle_points(ff)))
+		    df = map(divfun,γs)
+		    Ωx[i] = -1im*sum(map(Integrate,df))
+		end
+	else
+		for i = 1:g
+        	for j = 1:g
+            	if i == j
+                	Ωx[i] += 2im*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> sqrt(z)*F(i,i,z+1im*ep)))
+            	else
+                	Ωx[j] += 2im*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> sqrt(z)*F(j,i,z+1im*ep)))
+            	end
+        	end
+    	end
+	end
     Ωx = -2*(A\Ωx)
 
     # TODO: For efficiency E should be a scalar, but this serves as a check,
     # E == E[1]*fill(1.0,g)
 
     E = zeros(Complex{Float64},g);
-    for i = 1:g
-        for j = 1:g
-            if i == j
-                E[j] += Ωx[i]*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> z*F(i,i,z+1im*ep)))
-            else
-                E[j] += Ωx[i]*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> z*F(j,i,z+1im*ep)))
-            end
-        end
-    end
+	if new[1]
+		for i = 1:g
+		    b = gaps[i,1]
+		    divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(PeriodicKdV.circle_points(ff) .- b)).*PeriodicKdV.circle_points(ff))
+		    df = map(divfun,γs)
+		    E[i] = -0.5*sum(Ωx.*map(PeriodicKdV.Integrate,df))
+		end
+	else
+    	for i = 1:g
+        	for j = 1:g
+            	if i == j
+                	E[j] += Ωx[i]*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> z*F(i,i,z+1im*ep)))
+            	else
+                	E[j] += Ωx[i]*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> z*F(j,i,z+1im*ep)))
+            	end
+        	end
+    	end
+	end
 
 
     Ωt = zeros(Complex{Float64},g);
-    for i = 1:g
-        for j = 1:g
-            if i == j
-                Ωt[i] += 8im*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> z^(3/2)*F(i,i,z+1im*ep)))
-            else
-                Ωt[j] += 8im*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> z^(3/2)*F(j,i,z+1im*ep)))
-            end
-        end
-    end
+	if new[1]
+		for i = 1:g
+			b = gaps[i,1]
+			divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(circle_points(ff) .- b)).*sqrt.(circle_points(ff)).^3)
+			df = map(divfun,γs)
+			Ωt[i] = -4im*sum(map(Integrate,df))
+		end
+	else
+		for i = 1:g
+        	for j = 1:g
+            	if i == j
+                	Ωt[i] += 8im*(DefiniteIntegral(transformT,gaps[i,1],gaps[i,2],m)*(z -> z^(3/2)*F(i,i,z+1im*ep)))
+            	else
+                	Ωt[j] += 8im*(DefiniteIntegral(transformV,gaps[i,1],gaps[i,2],m)*(z -> z^(3/2)*F(j,i,z+1im*ep)))
+            	end
+        	end
+    	end
+	end
     E -= Ωt/4
     E /= 2im*pi
     Ωt = -2*(A\Ωt)
 
-    function J(n,λ)
+	function J(n,λ)
         if λ > 1 && n == 0
             return 1.0
         elseif λ > 1
@@ -192,37 +219,92 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=true)
         cs[1] - out
     end
 
-    function Abel(n,j,k,λ) # integrate differential k over part of gap j
-        a = gaps[j,1]
-        b = gaps[j,2]
-        if k == j
-            -J(xx -> F(j,k,xx), a, b, n, λ)
-        else
-            #println(2/(gaps[j,2]-gaps[j,1]))
-            -2/(gaps[j,2]-gaps[j,1])*J( xx -> F(k,j,xx)*(xx - gaps[j,1]), a, b, n, λ)
-        end
-    end
+	function J(v,a,b,λ)
+	    cs = transformT(v)
+	    #display(cs[end] |> abs)
+	    out = 0im
+	    for i = 1:length(cs)
+	        out += cs[i]*J(i-1,iM(a,b)(λ))
+	    end
+	    cs[1] - out
+	end
 
-    function Abel(n,k,λ) # integrate differential k over part of gap j
-        j = 1
-        for jj = 1:g
-            if gaps[j,1] <= λ <= gaps[j,2]
-                break
-            end
-            j += 1
-        end
-        if j == g + 1
-            #@warn "Not in a gap"
-            return 0
-        else
-            return Abel(n,j,k,λ)
-        end
-    end
 
-    abel =  map( k -> -zs[1,2]*Abel(m,k,zs[1,1]), 1:g)
-    for j = 2:g
-         abel += map( k -> -zs[j,2]*Abel(m,k,zs[j,1]), 1:g)
-    end
+	if new[2]
+		println("Abel: new method")
+		gen_abel_pts = (a,b,λ) -> M(a,b)(Ugrid(m))
+		abel_pts = map(gen_abel_pts,gaps[:,1],gaps[:,2],zs[:,1])
+		abel_γ =  map(z -> map( y -> γ(y), z),abel_pts)
+
+		function Abelvec(n,j,k,λ) # integrate differential k over part of gap j
+		    a = gaps[j,1]
+		    b = gaps[j,2]
+		    if k == j
+		        -J(xx -> F(j,k,xx), a, b, n, λ)
+		    else
+		        vals = copy(abel_γ[j])
+		        vals .*= map(r,abel_pts[j] .- b, abel_pts[j] .- a)
+		        vals .*= (abel_pts[j] .- a)./(abel_pts[j] .- gaps[k,1])
+		        1im*pi*J(vals,a,b,λ)
+		    end
+		end
+
+		function Abelvec(n,k,λ) # integrate differential k over part of gap j
+		    j = 1
+		    for jj = 1:g
+		        if gaps[j,1] <= λ <= gaps[j,2]
+		            break
+		        end
+		        j += 1
+		    end
+		    if j == g + 1
+		        #@warn "Not in a gap"
+		        return 0
+		    else
+		        return Abelvec(n,j,k,λ)
+		    end
+		end
+	else
+    	function Abel(n,j,k,λ) # integrate differential k over part of gap j
+        	a = gaps[j,1]
+        	b = gaps[j,2]
+        	if k == j
+            	-J(xx -> F(j,k,xx), a, b, n, λ)
+        	else
+            	#println(2/(gaps[j,2]-gaps[j,1]))
+            	-2/(gaps[j,2]-gaps[j,1])*J( xx -> F(k,j,xx)*(xx - gaps[j,1]), a, b, n, λ)
+        	end
+    	end
+
+    	function Abel(n,k,λ) # integrate differential k over part of gap j
+        	j = 1
+        	for jj = 1:g
+            	if gaps[j,1] <= λ <= gaps[j,2]
+                	break
+            	end
+            	j += 1
+        	end
+        	if j == g + 1
+            	#@warn "Not in a gap"
+            	return 0
+        	else
+            	return Abel(n,j,k,λ)
+        	end
+    	end
+		println("Abel: old method")
+	end
+
+	if new[2]
+		abel =  map( k -> -zs[1,2]*Abelvec(m,k,zs[1,1]), 1:g)
+		for j = 2:g
+			 abel += map( k -> -zs[j,2]*Abelvec(m,k,zs[j,1]), 1:g)
+		end
+	else
+		abel =  map( k -> -zs[1,2]*Abel(m,k,zs[1,1]), 1:g)
+    	for j = 2:g
+        	abel += map( k -> -zs[j,2]*Abel(m,k,zs[j,1]), 1:g)
+    	end
+	end
     #display((A,abel))
     abel = (A\abel)*(2im*pi)
 
