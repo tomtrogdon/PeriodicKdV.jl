@@ -250,7 +250,7 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
 		abel_pts = map(gen_abel_pts,gaps[:,1],gaps[:,2],zs[:,1])
 		abel_γ =  copy(abel_pts)
 		for i = 1:g
-			abel_γ[i] = map(z -> γ(i,z), abel_pts)
+			abel_γ[i] = map(z -> γ(i,z), abel_pts[i])
 		end
 
 		function Abelvec(n,j,k,λ) # integrate differential k over part of gap j
