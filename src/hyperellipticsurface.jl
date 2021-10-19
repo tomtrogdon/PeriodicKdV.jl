@@ -73,6 +73,20 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
         end
     end
 
+	function γ(j,z)
+        out = -1im/sqrt(-z |> Complex)
+        for i = 1:size(gaps)[1]
+			if i != j
+            	out *= r(z - gaps[i,1], z - gaps[i,2])
+			end
+        end
+        if imag(z) >= 0.0
+            return out
+        else
+            return -out
+        end
+    end
+
     g = size(gaps)[1]
     A = zeros(Complex{Float64},g,g);
 
@@ -234,7 +248,10 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
 		println("Abel: new method")
 		gen_abel_pts = (a,b,λ) -> M(a,b)(Ugrid(m))
 		abel_pts = map(gen_abel_pts,gaps[:,1],gaps[:,2],zs[:,1])
-		abel_γ =  map(z -> map( y -> γ(y), z),abel_pts)
+		abel_γ =  copy(abel_pts)
+		for i = 1:g
+			abel_γ[i] = map(z -> γ(i,z), abel_pts)
+		end
 
 		function Abelvec(n,j,k,λ) # integrate differential k over part of gap j
 		    a = gaps[j,1]
@@ -243,7 +260,7 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
 		        -J(xx -> F(j,k,xx), a, b, n, λ)
 		    else
 		        vals = copy(abel_γ[j])
-		        vals .*= map(r,abel_pts[j] .- b, abel_pts[j] .- a)
+		        #vals .*= map(r,abel_pts[j] .- b, abel_pts[j] .- a)
 		        vals .*= (abel_pts[j] .- a)./(abel_pts[j] .- gaps[k,1])
 		        1im*pi*J(vals,a,b,λ)
 		    end
