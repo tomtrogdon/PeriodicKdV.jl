@@ -357,16 +357,16 @@ function bernsteinρ(a,b,r)
     ρ =  rr - sqrt(rr^2 - 1)
 end
 
-function bernsteinρ(v::Array)
+function bernsteinρ(v::Array) #tune rad/3
     u = copy(v[:,1])
     rad = min(v[2,1]-v[1,2],2*v[1,1])
-    u[1] = bernsteinρ(v[1,1],v[1,2],rad/2)
+    u[1] = bernsteinρ(v[1,1],v[1,2],rad/3)
     for i = 2:length(u)-1
         rad = min(v[i,1]-v[i-1,2],v[i+1,1]-v[i,2])
-        u[i] = bernsteinρ(v[i,1],v[i,2],rad/2)
+        u[i] = bernsteinρ(v[i,1],v[i,2],rad/3)
     end
     rad = v[end,1]-v[end-1,2]
-    u[end] = bernsteinρ(v[end,1],v[end,2],rad/2)
+    u[end] = bernsteinρ(v[end,1],v[end,2],rad/3)
     u
 end
 
