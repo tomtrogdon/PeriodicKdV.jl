@@ -91,7 +91,7 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
     A = zeros(Complex{Float64},g,g);
 
     if new[1]
-		println("a-cycles: new method")
+		#println("a-cycles: new method")
         as = (gaps[:,1] + gaps[:,2])/2 |> complex
         dist = (gaps[2:end,2] - gaps[1:end-1,1])/2 |> minimum # no need to be uniform here
 	    dist = min(dist, gaps[1,1]/2)
@@ -245,7 +245,7 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
 
 
 	if new[2]
-		println("Abel: new method")
+		#println("Abel: new method")
 		gen_abel_pts = (a,b,λ) -> M(a,b)(Ugrid(m))
 		abel_pts = map(gen_abel_pts,gaps[:,1],gaps[:,2],zs[:,1])
 		abel_γ =  copy(abel_pts)
@@ -308,7 +308,7 @@ function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
             	return Abel(n,j,k,λ)
         	end
     	end
-		println("Abel: old method")
+		#println("Abel: old method")
 	end
 
 	if new[2]
