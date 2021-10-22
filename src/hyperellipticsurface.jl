@@ -515,8 +515,18 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
 
     Sp = permute(S,p)
     JxCp = permute(JxC⁻,p)
-
     D = TakeDiagonalBlocks(Sp,2)
+
+	Spold = BlockOperator(Sp.A |> copy)
+	for i = 1:size(Sp.A)[1]
+		Sp[i,i] = ZeroOperator((Sp[i,i] |> size)...)
+	end
+
+	for i = 1:2:size(Sp.A)[1]-1
+		Sp[i,i+1] = ZeroOperator((Sp[i,i] |> size)...)
+		Sp[i+1,i] = ZeroOperator((Sp[i,i] |> size)...)
+	end
+	#return Sp
 
     #### fix this.
     ind = vcat(ns,ns)
@@ -527,6 +537,7 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     coarse_ind = coarse_ind[1:2:end] + coarse_ind[2:2:end] |> gapstoindex
 
     PrS = x -> BlockVector(fine_ind,D\BlockVector(coarse_ind,x))
+	MD = x -> BlockVector(fine_ind,D*BlockVector(coarse_ind,x))
 
     b = BlockVector(ind,fill(0.0im,2*dim))
     bx =  BlockVector(ind,fill(0.0im,2*dim))
@@ -550,8 +561,11 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     bp = permute(b,p)
     bpx = permute(bx,p)
 
-    Op = x -> PrS(Sp*x)
-    #return (D,coarse_ind,fine_ind,bp)
+	#return Spold, Sp, MD, bp
+
+    #Op = x -> x + PrS(Spold*x - MD(x))
+	Op = x -> x + PrS(Sp*x)
+	#Op = x -> x + PrS(Spold*x)
     out = GMRES_quiet(Op,PrS(bp),⋅, tol,BA.iter)
     solp = out[2][1]*out[1][1]
     for j = 2:length(out[2])

@@ -206,6 +206,10 @@ function getindex(B::BlockOperator,i::Integer,j::Integer)
     B.A[i,j]
 end
 
+function setindex!(B::BlockOperator,L::LinearOperator,i::Integer,j::Integer)
+    B.A[i,j] = L
+end
+
 function size(A::BlockOperator)
     return A.A |> size
 end
@@ -240,6 +244,9 @@ function *(D::DiagonalBlockOperator,B::BlockOperator)
     BlockOperator(A)
 end
 
+function *(c::Number,M::MatrixOperator)
+    MatrixOperator(c*M.A)
+end
 
 function diag(B::BlockOperator)
    (n,m) = size(B)
@@ -491,7 +498,7 @@ function chop(A::DiagonalBlockOperator,tol)
 end
 
 function TakeDiagonalBlock(A::BlockOperator,k::Integer,j::Integer)
-    T = map(Array,A.A[k:k+j-1,k:k+j-1])
+    T = map(Array,A.A[k:k+j-1,k:k+j-1] |> copy)
     vcat([hcat(T[i,:]...) for i = 1:j]...) |> MatrixOperator
 end
 
