@@ -244,10 +244,6 @@ function *(D::DiagonalBlockOperator,B::BlockOperator)
     BlockOperator(A)
 end
 
-function *(c::Number,M::MatrixOperator)
-    MatrixOperator(c*M.A)
-end
-
 function diag(B::BlockOperator)
    (n,m) = size(B)
     DiagonalBlockOperator([B[i,i] for i = 1 : min(n,m)])
