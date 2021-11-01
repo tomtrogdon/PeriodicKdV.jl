@@ -400,7 +400,7 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Array,tol = 2*1e-14,it
     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
 end
 
-function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol; directsolve = false)
+function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol; directsolve = false; getmatrices = false)
     ns = BA.ns
     Ωs = BA.Ω(x,t)
     Ωsx = BA.Ω(1.0,0) - BA.Ω(0.0,0)
@@ -466,6 +466,11 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol; directsolve = false)
 	    bpx = permute(bx,p)
 
 		D = TakeDiagonalBlocks(Sp,2)
+
+		if getmatrices
+			return (Array(Sp),Array(D))
+		end
+
 		for i = 1:size(Sp.A)[1]
 			Sp[i,i] = ZeroOperator((Sp[i,i] |> size)...)
 		end
