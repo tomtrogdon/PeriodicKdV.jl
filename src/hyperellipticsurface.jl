@@ -18,7 +18,7 @@ function HyperellipticSurface(q0::Function,L::Float64,n=100,tol=1e-14,m=200,trun
     return S
 end
 
-function HyperellipticSurface(gaps,zs,α1,m=50,new=[true,true])
+function HyperellipticSurface(gaps,zs,α1,m=50)
     ep = 0 #TODO: Probably a good idea to eliminate the need for this.
     r = (x,y) -> (x |> Complex |> sqrt)/(y |> Complex |> sqrt)
     pr = (x,y) -> (x |> Complex |> sqrt)*(y |> Complex |> sqrt)
@@ -400,7 +400,7 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Array,tol = 2*1e-14,it
     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
 end
 
-function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
+function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol; directsolve = false)
     ns = BA.ns
     Ωs = BA.Ω(x,t)
     Ωsx = BA.Ω(1.0,0) - BA.Ω(0.0,0)
@@ -439,81 +439,66 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     # Sx*u + S*ux = bx
     # S*ux = bx - Sx*u,   Sx = JxC-
 
-    Sp = permute(S,p)
-    JxCp = permute(JxC⁻,p)
-    D = TakeDiagonalBlocks(Sp,2)
+	ind = vcat(ns,ns)
+	dim = sum(ind)
+	ind = ind |> gapstoindex
 
-	Spold = BlockOperator(Sp.A |> copy)
-	for i = 1:size(Sp.A)[1]
-		Sp[i,i] = ZeroOperator((Sp[i,i] |> size)...)
-	end
-
-	for i = 1:2:size(Sp.A)[1]-1
-		Sp[i,i+1] = ZeroOperator((Sp[i,i] |> size)...)
-		Sp[i+1,i] = ZeroOperator((Sp[i,i] |> size)...)
-	end
-	#return Sp
-
-    #### fix this.
-    ind = vcat(ns,ns)
-    dim = sum(ind)
-    ind = ind |> gapstoindex
-    fine_ind = indextogaps(ind)[p] |> gapstoindex
-    coarse_ind = fine_ind |> indextogaps
-    coarse_ind = coarse_ind[1:2:end] + coarse_ind[2:2:end] |> gapstoindex
-
-    PrS = x -> BlockVector(fine_ind,D\BlockVector(coarse_ind,x))
-	MD = x -> BlockVector(fine_ind,D*BlockVector(coarse_ind,x))
-
-    b = BlockVector(ind,fill(0.0im,2*dim))
-    bx =  BlockVector(ind,fill(0.0im,2*dim))
-
-    #### Do this using block vectors
-
-    for j in 1:m
+	b = BlockVector(ind,fill(0.0im,dim))
+	bx =  BlockVector(ind,fill(0.0im,dim))
+	for j in 1:m
         b[j] = b[j] .+ (RHP[j].J[1,1] + RHP[j].J[2,1] - 1)
         b[j+m] = b[j+m] .+ (RHP[j].J[2,2] + RHP[j].J[1,2] - 1)
         bx[j] = bx[j] .+ (RHPx[j].J[1,1] + RHPx[j].J[2,1])
         bx[j+m] = bx[j+m] .+ (RHPx[j].J[2,2] + RHPx[j].J[1,2])
-
-#         rhs[(j-1)*n+1:j*n] = rhs[(j-1)*n+1:j*n] .+ (RHP[j].J[1,1] + RHP[j].J[2,1] - 1)
-#         rhs[m*n+(j-1)*n+1:m*n+j*n] = rhs[m*n+(j-1)*n+1:m*n+j*n] .+ (RHP[j].J[2,2] + RHP[j].J[1,2] - 1)
-#         rhsx[(j-1)*n+1:j*n] = rhsx[(j-1)*n+1:j*n] .+ (RHPx[j].J[1,1] + RHPx[j].J[2,1])
-#         rhsx[m*n+(j-1)*n+1:m*n+j*n] = rhsx[m*n+(j-1)*n+1:m*n+j*n] .+ (RHPx[j].J[2,2] + RHPx[j].J[1,2])
     end
 
-    #b = BlockVector(rhs,n)
-    #bx = BlockVector(rhsx,n)
-    bp = permute(b,p)
-    bpx = permute(bx,p)
+	if directsolve
+		Smat = S |> Array
+		solvec = Smat\Vector(b)
+		JxC⁻mat = JxC⁻ |> Array
+		solvecx = Smat\(Vector(bx) - JxC⁻mat*solvec)
+		sol = BlockVector(ind,solvec)
+		solx = BlockVector(ind,solvecx)
+	else
+		Sp = permute(S,p)
+	    JxCp = permute(JxC⁻,p)
+		bp = permute(b,p)
+	    bpx = permute(bx,p)
 
-	#return Spold, Sp, MD, bp
+		D = TakeDiagonalBlocks(Sp,2)
+		for i = 1:size(Sp.A)[1]
+			Sp[i,i] = ZeroOperator((Sp[i,i] |> size)...)
+		end
 
-    #Op = x -> x + PrS(Spold*x - MD(x))
-	Op = x -> x + PrS(Sp*x)
-	#Op = x -> x + PrS(Spold*x)
-    out = GMRES_quiet(Op,PrS(bp),⋅, tol,BA.iter)
-    solp = out[2][1]*out[1][1]
-    for j = 2:length(out[2])
-        solp += out[2][j]*out[1][j]
+		for i = 1:2:size(Sp.A)[1]-1
+			Sp[i,i+1] = ZeroOperator((Sp[i,i] |> size)...)
+			Sp[i+1,i] = ZeroOperator((Sp[i,i] |> size)...)
+		end
+
+    	fine_ind = indextogaps(ind)[p] |> gapstoindex
+    	coarse_ind = fine_ind |> indextogaps
+    	coarse_ind = coarse_ind[1:2:end] + coarse_ind[2:2:end] |> gapstoindex
+
+    	PrS = x -> BlockVector(fine_ind,D\BlockVector(coarse_ind,x))
+		Op = x -> x + PrS(Sp*x)
+    	out = GMRES_quiet(Op,PrS(bp),⋅, tol,BA.iter)
+    	solp = out[2][1]*out[1][1]
+    	for j = 2:length(out[2])
+        	solp += out[2][j]*out[1][j]
+    	end
+
+    	outx = GMRES_quiet(Op,PrS(bpx-JxCp*solp),⋅, tol,BA.iter)
+    	solpx = outx[2][1]*outx[1][1]
+    	for j = 2:length(outx[2])
+        	solpx += outx[2][j]*outx[1][j]
+    	end
+
+		sol = ipermute(solp,p)
+	    solx = ipermute(solpx,p)
+
     end
 
-    outx = GMRES_quiet(Op,PrS(bpx-JxCp*solp),⋅, tol,BA.iter)
-    solpx = outx[2][1]*outx[1][1]
-    for j = 2:length(outx[2])
-        solpx += outx[2][j]*outx[1][j]
-    end
-
-    #Old way
-    #solp = +([out[2][j]*out[1][j] for j = 1:length(out[2])]...)
-
-
-    sol = ipermute(solp,p)
-
-	#return (sol,solp,p)
-    solx = ipermute(solpx,p)
-
-    f1 = [WeightFun(sol[j],RHP[j].W)  for j = 1:m ]
+	f1 = [WeightFun(sol[j],RHP[j].W)  for j = 1:m ]
     f2 = [WeightFun(sol[m + j],RHP[j].W)  for j = 1:m ]
     f1x = [WeightFun(solx[j],RHP[j].W)  for j = 1:m ]
     f2x = [WeightFun(solx[m + j],RHP[j].W)  for j = 1:m ]
@@ -523,15 +508,15 @@ function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol)
     #(Φ,f1,f2)
 end
 
-function KdV(BA::BakerAkhiezerFunction,x,t)
-    out = BA(x+6*BA.α1*t, t);
+function KdV(BA::BakerAkhiezerFunction,x,t; directsolve = false)
+    out = BA(x+6*BA.α1*t, t; directsolve);
     1/pi*sum(map(x -> DomainIntegrateVW(x), out[4])) + 2*BA.E - BA.α1
     # I think this is right but I cannot justify it, +/- sign issue
     # It must have to do with the jumps and which sheet, etc.
 end
 
-function KdV(BA::BakerAkhiezerFunction,x,t,tol)
-    out = BA(x+6*BA.α1*t, t, tol);
+function KdV(BA::BakerAkhiezerFunction,x,t,tol; directsolve = false)
+    out = BA(x+6*BA.α1*t, t, tol; directsolve);
     1/pi*sum(map(x -> DomainIntegrateVW(x), out[4])) + 2*BA.E - BA.α1
     # I think this is right but I cannot justify it, +/- sign issue
     # It must have to do with the jumps and which sheet, etc.
