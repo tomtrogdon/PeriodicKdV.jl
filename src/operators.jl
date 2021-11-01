@@ -49,6 +49,10 @@ struct SumOfLinearOperators <: LinearOperator
    A::Vector{LinearOperator}
 end
 
+function Array(Op::SumOfLinearOperators)
+    +(map(Array,Op.A)...)
+end
+
 struct ProductOfLinearOperators <: LinearOperator
    A::Vector{LinearOperator}
 end
