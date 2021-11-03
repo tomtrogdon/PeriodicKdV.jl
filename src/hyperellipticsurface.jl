@@ -18,7 +18,7 @@ function HyperellipticSurface(q0::Function,L::Float64,n=100,tol=1e-14,m=200,trun
     return S
 end
 
-function HyperellipticSurface(gaps,zs,α1,m=50)
+function HyperellipticSurface(gaps,zs,α1,m=50;cycleflag = true)
     ep = 0 #TODO: Probably a good idea to eliminate the need for this.
     r = (x,y) -> (x |> Complex |> sqrt)/(y |> Complex |> sqrt)
     pr = (x,y) -> (x |> Complex |> sqrt)*(y |> Complex |> sqrt)
@@ -34,6 +34,21 @@ function HyperellipticSurface(gaps,zs,α1,m=50)
     # F(j,k,z) to compute F(j',k',z) for neighboring j',k'
     function F(j,k,z)
         out = -1im/sqrt(-z |> Complex)
+        for i = 1:size(gaps)[1]
+            if i != j && i != k
+                out *= r(z - gaps[i,1], z - gaps[i,2])
+            end
+        end
+        if j == k
+            return -out*pi*1im
+        else
+            return -1im*(gaps[k,2]-gaps[k,1])/2*out/pr(z - gaps[j,1], z - gaps[j,2])*pi
+        end
+    end
+
+	function F(j,k,z,l)
+        out = -1im/sqrt(-z |> Complex)
+		out *= sqrt(z)^l
         for i = 1:size(gaps)[1]
             if i != j && i != k
                 out *= r(z - gaps[i,1], z - gaps[i,2])
@@ -86,81 +101,15 @@ function HyperellipticSurface(gaps,zs,α1,m=50)
             return -out
         end
     end
+	g = size(gaps)[1]
+	gen_abel_pts = (a,b,λ) -> M(a,b)(Ugrid(m))
+	abel_pts = map(gen_abel_pts,gaps[:,1],gaps[:,2],zs[:,1])
+	abel_γ =  copy(abel_pts)
+	for i = 1:g
+		abel_γ[i] = map(z -> γ(i,z), abel_pts[i])
+	end
 
-    g = size(gaps)[1]
     A = zeros(Complex{Float64},g,g);
-
-    as = (gaps[:,1] + gaps[:,2])/2 |> complex
-	if size(gaps)[1] > 1
-        dist = (gaps[2:end,2] - gaps[1:end-1,1])/2 |> minimum # no need to be uniform here
-	    dist = min(dist, gaps[1,1]/2)
-	else
-		dist = gaps[1,1]/2
-	end
-    rads = (gaps[:,2] - gaps[:,1])/2 .+ dist
-    cfuns = (a,rad) -> CircleFun(z -> map(γ,z), a, rad, m)
-    γs = map(cfuns,as,rads)
-
-    for i = 1:g
-        b = gaps[i,1]
-        divfun = ff -> CircleFun(ff.a,ff.r,ff.v./(circle_points(ff) .- b))
-        df = map(divfun,γs)
-        A[i,:] = map(Integrate,df)
-    end
-    #end
-
-#     tB = zeros(Complex{Float64},g,g);
-#     for i = 1:g
-#         for j = 1:g
-#             if i == j
-#                 tB[i,i] = 2*(DefiniteIntegral(transformT,bands[i,1],bands[i,2],m)*(z -> G(i,i,z+1im*ep)))
-#             else
-#                 tB[j,i] = 2*(DefiniteIntegral(transformW,bands[i,1],bands[i,2],m)*(z -> G(j,i,z+1im*ep)))
-#             end
-#         end
-#     end
-
-#     B = copy(tB)
-#     B[:,1] = tB[:,1]
-#     for j = 2:g
-#        B[:,j] = B[:,j] + B[:,j-1]
-#     end
-#     B = 2im*pi*(A\B)  #Riemann Matrix
-
-    Ωx = zeros(Complex{Float64},g);
-	for i = 1:g
-		b = gaps[i,1]
-		divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(circle_points(ff) .- b)).*sqrt.(circle_points(ff)))
-		df = map(divfun,γs)
-		Ωx[i] = 2*sum(map(Integrate,df))
-	end
-    Ωx = A\Ωx
-
-    # TODO: For efficiency E should be a scalar, but this serves as a check,
-    # E == E[1]*fill(1.0,g)
-
-    E = zeros(Complex{Float64},g);
-	#if new[1]
-		for i = 1:g
-		    b = gaps[i,1]
-		    divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(PeriodicKdV.circle_points(ff) .- b)).*PeriodicKdV.circle_points(ff))
-		    df = map(divfun,γs)
-		    E[i] = -0.5*sum(Ωx.*map(Integrate,df))
-		end
-	#end
-
-
-    Ωt = zeros(Complex{Float64},g);
-	for i = 1:g
-		b = gaps[i,1]
-		divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(circle_points(ff) .- b)).*sqrt.(circle_points(ff)).^3)
-		df = map(divfun,γs)
-		Ωt[i] = 8*sum(map(Integrate,df))
-	end
-    E += Ωt/8
-    E /= -2im*pi
-    Ωt = A\Ωt
-
 
 	function J(n,λ)
         if λ > 1 && n == 0
@@ -182,32 +131,39 @@ function HyperellipticSurface(gaps,zs,α1,m=50)
 
     function J(f,a,b,n,λ)
         cs = transformT(map(f,M(a,b)(Ugrid(n))))
-        #display(cs[end] |> abs)
-        out = 0im
-        for i = 1:length(cs)
-            out += cs[i]*J(i-1,iM(a,b)(λ))
-        end
-        cs[1] - out
+		#display(cs[end] |> abs)
+	    out = 0im
+		if abs(a - λ) < 1e-14
+			return cs[1]
+		elseif abs(b - λ) < 1e-14
+			return out
+		else
+	    	for i = 1:length(cs)
+	        	out += cs[i]*J(i-1,iM(a,b)(λ))
+	    	end
+		end
+	    cs[1] - out
     end
 
 	function J(v,a,b,λ)
 	    cs = transformT(v)
 	    #display(cs[end] |> abs)
 	    out = 0im
-	    for i = 1:length(cs)
-	        out += cs[i]*J(i-1,iM(a,b)(λ))
-	    end
+		if abs(a - λ) < 1e-14
+			return cs[1]
+		elseif abs(b - λ) < 1e-14
+			return out
+		else
+	    	for i = 1:length(cs)
+	        	out += cs[i]*J(i-1,iM(a,b)(λ))
+	    	end
+		end
 	    cs[1] - out
 	end
 
 
 	#if new[2]
-	gen_abel_pts = (a,b,λ) -> M(a,b)(Ugrid(m))
-	abel_pts = map(gen_abel_pts,gaps[:,1],gaps[:,2],zs[:,1])
-	abel_γ =  copy(abel_pts)
-	for i = 1:g
-		abel_γ[i] = map(z -> γ(i,z), abel_pts[i])
-	end
+
 
 	function Abelvec(n,j,k,λ) # integrate differential k over part of gap j
 		a = gaps[j,1]
@@ -238,6 +194,130 @@ function HyperellipticSurface(gaps,zs,α1,m=50)
 		end
 	end
 
+	function powervec(n,j,k,λ,l) # integrate differential k over part of gap j
+		a = gaps[j,1]
+		b = gaps[j,2]
+		if k == j
+			-J(xx -> F(j,k,xx,l), a, b, n, λ)
+		else
+			vals = copy(abel_γ[j]).*(sqrt.(abel_pts[j]).^l)
+			#vals .*= map(r,abel_pts[j] .- b, abel_pts[j] .- a)
+			vals .*= (abel_pts[j] .- a)./(abel_pts[j] .- gaps[k,1])
+			1im*pi*J(vals,a,b,λ)
+		end
+	end
+
+	function powervec(n,k,λ,l) # integrate differential k over part of gap j
+		j = 1
+		for jj = 1:g
+			if gaps[j,1] <= λ <= gaps[j,2]
+				break
+			end
+			j += 1
+		end
+		if j == g + 1
+			#@warn "Not in a gap"
+			return 0
+		else
+			return powervec(n,j,k,λ,l)
+		end
+	end
+
+	if cycleflag
+    	as = (gaps[:,1] + gaps[:,2])/2 |> complex
+		if size(gaps)[1] > 1
+        	dist = (gaps[2:end,2] - gaps[1:end-1,1])/2 |> minimum # no need to be uniform here
+	    	dist = min(dist, gaps[1,1]/2)
+		else
+			dist = gaps[1,1]/2
+		end
+    	rads = (gaps[:,2] - gaps[:,1])/2 .+ dist
+    	cfuns = (a,rad) -> CircleFun(z -> map(γ,z), a, rad, m)
+    	γs = map(cfuns,as,rads)
+
+    	for i = 1:g
+        	b = gaps[i,1]
+        	divfun = ff -> CircleFun(ff.a,ff.r,ff.v./(circle_points(ff) .- b))
+        	df = map(divfun,γs)
+        	A[i,:] = map(Integrate,df)
+    	end
+		#display(A)
+    #end
+
+#     tB = zeros(Complex{Float64},g,g);
+#     for i = 1:g
+#         for j = 1:g
+#             if i == j
+#                 tB[i,i] = 2*(DefiniteIntegral(transformT,bands[i,1],bands[i,2],m)*(z -> G(i,i,z+1im*ep)))
+#             else
+#                 tB[j,i] = 2*(DefiniteIntegral(transformW,bands[i,1],bands[i,2],m)*(z -> G(j,i,z+1im*ep)))
+#             end
+#         end
+#     end
+
+#     B = copy(tB)
+#     B[:,1] = tB[:,1]
+#     for j = 2:g
+#        B[:,j] = B[:,j] + B[:,j-1]
+#     end
+#     B = 2im*pi*(A\B)  #Riemann Matrix
+
+    	Ωx = zeros(Complex{Float64},g);
+		for i = 1:g
+			b = gaps[i,1]
+			divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(circle_points(ff) .- b)).*sqrt.(circle_points(ff)))
+			df = map(divfun,γs)
+			Ωx[i] = 2*sum(map(Integrate,df))
+		end
+		#display(Ωx)
+    	Ωx = A\Ωx
+
+    	E = zeros(Complex{Float64},g);
+		for i = 1:g
+		    b = gaps[i,1]
+		    divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(PeriodicKdV.circle_points(ff) .- b)).*PeriodicKdV.circle_points(ff))
+		    df = map(divfun,γs)
+		    E[i] = -0.5*sum(Ωx.*map(Integrate,df))
+		end
+
+    	Ωt = zeros(Complex{Float64},g);
+		for i = 1:g
+			b = gaps[i,1]
+			divfun = ff -> CircleFun(ff.a,ff.r,(ff.v./(circle_points(ff) .- b)).*sqrt.(circle_points(ff)).^3)
+			df = map(divfun,γs)
+			Ωt[i] = 8*sum(map(Integrate,df))
+		end
+    	E += Ωt/8
+    	E /= -2im*pi
+    	Ωt = A\Ωt
+	else
+		for j = 1:g
+			A[:,j] = map( k -> -2*Abelvec(m,k,gaps[j,1]), 1:g)
+		end
+		#display(A)
+
+		Ωx = zeros(Complex{Float64},g);
+		for j = 1:g
+			Ωx += map( k -> -4*powervec(m,k,gaps[j,1],1), 1:g)
+		end
+		#display(Ωx)
+    	Ωx = A\Ωx
+
+		E = zeros(Complex{Float64},g);
+		for j = 1:g
+		    data = map( k -> -powervec(m,j,gaps[k,1],2), 1:g)
+		    E[j] = -sum(Ωx.*data)
+		end
+
+		Ωt = zeros(Complex{Float64},g);
+		for j = 1:g
+			Ωt += map( k -> -16*powervec(m,k,gaps[j,1],3), 1:g)
+		end
+		E += Ωt/8
+    	E /= -2im*pi
+    	Ωt = A\Ωt
+
+	end
 
 	abel =  map( k -> -zs[1,2]*Abelvec(m,k,zs[1,1]), 1:g)
 	for j = 2:g
@@ -302,7 +382,41 @@ function choose_order(gaps::Array,ϵ,c,k)
     map(z -> fff(ϵ,z,c,k), bernsteinρ(gaps)) .+ 2
 end
 
-function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tols = [2*1e-14,false],iter = 100)
+# function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tols = [2*1e-14,false],iter = 100)
+#     zgaps_neg = hcat(- sqrt.(S.gaps[:,2]) |> reverse, - sqrt.(S.gaps[:,1]) |> reverse)
+#     zgaps_pos = hcat( sqrt.(S.gaps[:,1]) , sqrt.(S.gaps[:,2]) )
+#     #zzs_pos = sqrt.(zs)
+#     #zzs_neg = -sqrt.(zs) |> reverse;
+#     fV = (x,y) -> WeightedInterval(x,y,chebV)
+#     fW = (x,y) -> WeightedInterval(x,y,chebW)
+#     Ω = (x,t) -> S.Ωx*x + S.Ωt*t + S.Ω0
+#
+#     WIm = map(fW,zgaps_neg[:,1],zgaps_neg[:,2])
+#     WIp = map(fV,zgaps_pos[:,1],zgaps_pos[:,2])
+#
+#     Ωs = Ω(0.0,0.0)
+#     RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
+#     ns = fill(n,WIp |> length)
+#
+# #     #lens = abs.(zgaps[:,1] - zgaps[:,2])
+#
+#
+# #     f = x -> convert(Int,ceil(10 + 10/x^2))
+# #     ns = map(f,zgaps_pos[:,1])
+#     ns = vcat(ns |> reverse, ns)
+#
+#     CpBO = CauchyChop(RHP,RHP,ns,ns,1,tols[2])
+#     CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tols[2])
+#
+#
+#     #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
+#     #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
+#
+#
+#     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tols[1],iter)
+# end
+
+function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64;tols = [2*1e-14,false],iter = 100,K=0,show_flag=false,choose_points = "adaptive",max_pts = 1000)
     zgaps_neg = hcat(- sqrt.(S.gaps[:,2]) |> reverse, - sqrt.(S.gaps[:,1]) |> reverse)
     zgaps_pos = hcat( sqrt.(S.gaps[:,1]) , sqrt.(S.gaps[:,2]) )
     #zzs_pos = sqrt.(zs)
@@ -316,41 +430,11 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,n::Int64,tols = [2*1e-14,
 
     Ωs = Ω(0.0,0.0)
     RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
-    ns = fill(n,WIp |> length)
-
-#     #lens = abs.(zgaps[:,1] - zgaps[:,2])
-
-
-#     f = x -> convert(Int,ceil(10 + 10/x^2))
-#     ns = map(f,zgaps_pos[:,1])
-    ns = vcat(ns |> reverse, ns)
-
-    CpBO = CauchyChop(RHP,RHP,ns,ns,1,tols[2])
-    CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tols[2])
-
-
-    #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
-    #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
-
-
-    return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tols[1],iter)
-end
-
-function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tols = [2*1e-14,false],iter = 100,K=0,show_flag=false)
-    zgaps_neg = hcat(- sqrt.(S.gaps[:,2]) |> reverse, - sqrt.(S.gaps[:,1]) |> reverse)
-    zgaps_pos = hcat( sqrt.(S.gaps[:,1]) , sqrt.(S.gaps[:,2]) )
-    #zzs_pos = sqrt.(zs)
-    #zzs_neg = -sqrt.(zs) |> reverse;
-    fV = (x,y) -> WeightedInterval(x,y,chebV)
-    fW = (x,y) -> WeightedInterval(x,y,chebW)
-    Ω = (x,t) -> S.Ωx*x + S.Ωt*t + S.Ω0
-
-    WIm = map(fW,zgaps_neg[:,1],zgaps_neg[:,2])
-    WIp = map(fV,zgaps_pos[:,1],zgaps_pos[:,2])
-
-    Ωs = Ω(0.0,0.0)
-    RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
-    ns = choose_order(zgaps_pos,tols[1],c,K)
+	if choose_points == "adaptive"
+    	ns = map(x -> min(x,max_pts), choose_order(zgaps_pos,tols[1],c,K))
+	else
+		ns = fill(choose_points,WIp |> length)
+	end
     if show_flag
     	println(ns)
     end
@@ -374,7 +458,7 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64,tols = [2*1e-1
     return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tols[1],iter)
 end
 
-function BakerAkhiezerFunction(S::HyperellipticSurface,c::Array,tol = 2*1e-14,iter = 100)
+function BakerAkhiezerFunction(S::HyperellipticSurface,c::Array;tols = [2*1e-14,false],iter = 100)
     zgaps_neg = hcat(- sqrt.(S.gaps[:,2]) |> reverse, - sqrt.(S.gaps[:,1]) |> reverse)
     zgaps_pos = hcat( sqrt.(S.gaps[:,1]) , sqrt.(S.gaps[:,2]) )
     #zzs_pos = sqrt.(zs)
@@ -393,11 +477,11 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Array,tol = 2*1e-14,it
 #     f = x -> convert(Int,ceil(10 + 10/x^2))
 #     ns = map(f,zgaps_pos[:,1])
     ns = vcat(ns |> reverse, ns)
-    CpBO = CauchyChop(RHP,RHP,ns,ns,1,tol)
-    CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tol)
+    CpBO = CauchyChop(RHP,RHP,ns,ns,1,tols[2])
+    CmBO = CauchyChop(RHP,RHP,ns,ns,-1,tols[2])
     #println("Effective rank of Cauchy operator = ",effectiverank(CpBO))
     #println("Maximum rank of Cauchy operator = ", (2*S.g)^2*n )
-    return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tol,iter)
+    return BakerAkhiezerFunction(WIm,WIp,Ω,S.E[1],S.α1,CpBO,CmBO,ns,tols[1],iter)
 end
 
 function (BA::BakerAkhiezerFunction)(x,t,tol = BA.tol; directsolve = false, getmatrices = false)
