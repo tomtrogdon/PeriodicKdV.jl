@@ -13,12 +13,12 @@ end
 function HyperellipticSurface(q0::Function,L::Float64,n=100,tol=1e-14,m=200,trunctol=1e-14,invtol=.4)
     gaps, zs, α1 = ScatteringData(q0,L,n,tol,trunctol)
     k = size(gaps)[1]
-    S = HyperellipticSurface(gaps,zs,α1,m,new)
-    RefineHyperellipticSurface!(q0,L,S,invtol,n,tol,k,m,new)
+    S = HyperellipticSurface(gaps,zs,α1,m)
+    RefineHyperellipticSurface!(q0,L,S,invtol,n,tol,k,m)
     return S
 end
 
-function HyperellipticSurface(gaps,zs,α1,m=50;cycleflag = true)
+function HyperellipticSurface(gaps,zs,α1,m=50;cycleflag = false)
     ep = 0 #TODO: Probably a good idea to eliminate the need for this.
     r = (x,y) -> (x |> Complex |> sqrt)/(y |> Complex |> sqrt)
     pr = (x,y) -> (x |> Complex |> sqrt)*(y |> Complex |> sqrt)
