@@ -122,7 +122,7 @@ bW = n ->  0.5
 ## Define the weights
 chebV = Weight(aV,bV,seedV,x -> 1/pi*sqrt((1+x)/(1-x)) )
 chebW = Weight(aW,bW,seedW,x -> 1/pi*sqrt((1-x)/(1+x)) )
-chebT = Weight(aT,bT,seedT,x -> 2/pi*1/sqrt((1+x)*(1-x)) )
+chebT = Weight(aT,bT,seedT,x -> 1/pi*1/sqrt((1+x)*(1-x)) )
 chebU = Weight(aU,bU,seedU,x -> 2/pi*sqrt((1-x)*(1+x)) )
 
 struct DefiniteIntegral <: LinearOperator
