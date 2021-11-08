@@ -205,7 +205,7 @@ function find_s(cΩx::Vector,cΩ0::Vector,L,gaps::Array,tol)
         end
     end
     @warn "Failed to find shift"
-    return mod(T,L)
+    return rand()*L
 end
 
 function RefineHyperellipticSurface!(q0::Function,L,S::HyperellipticSurface,invtol,n,tol,k,m)
