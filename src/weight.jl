@@ -30,6 +30,20 @@ struct WeightFun
     W::WeightedInterval
 end
 
+InInterval(x,WI) = WI.a <= x <= WI.b
+
+function (F::WeightFun)(x::Float64)
+    if InInterval(x,F.W)
+        (poly(F.W.W.a,F.W.W.b,length(F.cs)-1,[iM(F.W.a,F.W.b)(x)])*F.cs)[1]
+    else
+        return 0.0
+    end
+end
+
+function (F::WeightFun)(x::Vector{Float64})
+    poly(F.W.W.a,F.W.W.b,length(F.cs)-1,iM(F.W.a,F.W.b)(x))*F.cs
+end
+
 function WeightPlot(C::WeightedInterval)
     x = -1:0.01:1
     a = W.a
