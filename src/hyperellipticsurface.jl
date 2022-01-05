@@ -432,6 +432,8 @@ function BakerAkhiezerFunction(S::HyperellipticSurface,c::Float64;tols = [2*1e-1
     RHP = vcat(map(gm,WIm,Ωs |> reverse),map(gp,WIp,Ωs));
 	if choose_points == "adaptive"
     	ns = map(x -> min(x,max_pts), choose_order(zgaps_pos,tols[1],c,K))
+	elseif typeof(choose_points) <: Vector
+		ns = choose_points
 	else
 		ns = fill(choose_points,WIp |> length)
 	end
