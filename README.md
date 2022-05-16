@@ -26,6 +26,6 @@ plot(x, map( x -> u(x,1.0), x) |> real)
 
 
 
-[![CI](https://github.com/tomtrogdon/PeriodicKdV.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/tomtrogdon/PeriodicKdV.jl/actions/workflows/CI.yml) [![codecov](https://codecov.io/gh/tomtrogdon/PeriodicKdV.jl/branch/main/graph/badge.svg?token=JCU86U5O3J)](https://codecov.io/gh/tomtrogdon/PeriodicKdV.jl)[![DOI](https://zenodo.org/badge/350778634.svg)](https://zenodo.org/badge/latestdoi/350778634)
+[![CI](https://github.com/tomtrogdon/PeriodicKdV.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/tomtrogdon/PeriodicKdV.jl/actions/workflows/CI.yml) [![codecov](https://codecov.io/gh/tomtrogdon/PeriodicKdV.jl/branch/main/graph/badge.svg?token=JCU86U5O3J)](https://codecov.io/gh/tomtrogdon/PeriodicKdV.jl) [![DOI](https://zenodo.org/badge/350778634.svg)](https://zenodo.org/badge/latestdoi/350778634)
 
 
