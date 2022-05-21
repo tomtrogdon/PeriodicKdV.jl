@@ -18,7 +18,7 @@ This code defines a sequence of intervals (`gaps`) and zeros `zs` that lie in th
 ```
 S = HyperellipticSurface(gaps,zs,α1,300);
 BA = BakerAkhiezerFunction(S,200.; tols = [1e-17,1e-10]);
-u(x,t) = PeriodicKdV.KdV(BA,x,t,1e-8)
+u(x,t) = KdV(BA,x,t,1e-8)
 x = 0:.01:5
 plot(x, map( x -> u(x,1.0), x) |> real)
 ```
